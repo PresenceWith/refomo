@@ -13,6 +13,7 @@ final class RecordViewModel: ObservableObject {
     @Published var memo = ""
 
     var pendingRecord: PendingRecord?
+    var existingRecordId: UUID?
 
     private let storageService = StorageService.shared
 
@@ -34,16 +35,33 @@ final class RecordViewModel: ObservableObject {
 
     func saveRecord(completion: @escaping () -> Void) {
         guard let p = pendingRecord else { completion(); return }
-        let record = PomodoroRecord(
-            startTime: p.startTime,
-            plannedDuration: p.plannedDuration,
-            actualDuration: p.actualDuration,
-            goal: p.goal,
-            focusLevel: focusLevel,
-            reflection: reflection.isEmpty ? nil : reflection,
-            memo: memo.isEmpty ? nil : memo
-        )
-        storageService.append(record: record)
+
+        if let recordId = existingRecordId {
+            // Update existing record
+            var records = storageService.load()
+            if let index = records.firstIndex(where: { $0.id == recordId }) {
+                records[index].actualDuration = p.actualDuration
+                records[index].focusLevel = focusLevel
+                records[index].reflection = reflection.isEmpty ? nil : reflection
+                if !memo.isEmpty {
+                    records[index].memo = memo
+                }
+                storageService.save(records: records)
+            }
+        } else {
+            // Create new record
+            let record = PomodoroRecord(
+                startTime: p.startTime,
+                plannedDuration: p.plannedDuration,
+                actualDuration: p.actualDuration,
+                goal: p.goal,
+                focusLevel: focusLevel,
+                reflection: reflection.isEmpty ? nil : reflection,
+                memo: memo.isEmpty ? nil : memo
+            )
+            storageService.append(record: record)
+        }
+
         reset()
         completion()
     }
@@ -58,5 +76,6 @@ final class RecordViewModel: ObservableObject {
         reflection = ""
         memo = ""
         pendingRecord = nil
+        existingRecordId = nil
     }
 }

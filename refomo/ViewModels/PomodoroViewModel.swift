@@ -26,10 +26,13 @@ final class PomodoroViewModel: ObservableObject {
     @Published var timerState: TimerState = .idle
     @Published var showRecordView = false
     @Published var goalText = ""
+    @Published var inProgressMemo = ""
+    @Published var showMemoPanel = false
 
     private var timer: Timer?
     private var startTime: Date?
     private var plannedDuration = 0
+    private(set) var currentRecordId: UUID?
 
     var progress: Double {
         switch timerState {
@@ -90,9 +93,14 @@ final class PomodoroViewModel: ObservableObject {
         overSeconds = 0
         startTime = nil
         goalText = ""
+        inProgressMemo = ""
+        currentRecordId = nil
     }
 
     func completeSession() {
+        if let recordId = currentRecordId {
+            updateActualDuration(recordId: recordId)
+        }
         stopTimer()
         showRecordView = true
     }
@@ -106,7 +114,22 @@ final class PomodoroViewModel: ObservableObject {
 
     func finishSession() {
         showRecordView = false
+        currentRecordId = nil
         resetTimer()
+    }
+
+    func saveMemoRecord() {
+        guard !inProgressMemo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        if let recordId = currentRecordId {
+            updateMemoInRecord(recordId: recordId, memo: inProgressMemo)
+        } else {
+            let newRecord = createPartialRecord()
+            StorageService.shared.append(record: newRecord)
+            currentRecordId = newRecord.id
+        }
     }
 
     // MARK: - Private
@@ -153,5 +176,33 @@ final class PomodoroViewModel: ObservableObject {
 
     private func setScreenAwake(_ awake: Bool) {
         UIApplication.shared.isIdleTimerDisabled = awake
+    }
+
+    private func createPartialRecord() -> PomodoroRecord {
+        return PomodoroRecord(
+            startTime: startTime ?? Date(),
+            plannedDuration: plannedDuration,
+            actualDuration: nil,
+            goal: goalText.isEmpty ? nil : goalText,
+            focusLevel: nil,
+            reflection: nil,
+            memo: inProgressMemo.isEmpty ? nil : inProgressMemo
+        )
+    }
+
+    private func updateMemoInRecord(recordId: UUID, memo: String) {
+        var records = StorageService.shared.load()
+        if let index = records.firstIndex(where: { $0.id == recordId }) {
+            records[index].memo = memo.isEmpty ? nil : memo
+            StorageService.shared.save(records: records)
+        }
+    }
+
+    private func updateActualDuration(recordId: UUID) {
+        var records = StorageService.shared.load()
+        if let index = records.firstIndex(where: { $0.id == recordId }) {
+            records[index].actualDuration = plannedDuration + overSeconds
+            StorageService.shared.save(records: records)
+        }
     }
 }

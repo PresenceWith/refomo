@@ -61,4 +61,12 @@ final class StorageService {
         records.append(record)
         save(records: records)
     }
+
+    func update(record: PomodoroRecord) {
+        var records = load()
+        if let index = records.firstIndex(where: { $0.id == record.id }) {
+            records[index] = record
+            save(records: records)
+        }
+    }
 }

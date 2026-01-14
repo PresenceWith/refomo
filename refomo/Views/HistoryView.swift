@@ -99,6 +99,10 @@ struct RecordRowView: View {
         return f
     }()
 
+    private var isIncomplete: Bool {
+        record.actualDuration == nil
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // 시작 시간 (가장 눈에 띄는 요소)
@@ -109,10 +113,23 @@ struct RecordRowView: View {
 
             Spacer()
 
+            // 진행 중 배지
+            if isIncomplete {
+                Text("진행 중")
+                    .font(.caption2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.2))
+                    .foregroundColor(.orange)
+                    .cornerRadius(4)
+            }
+
             // 지속 시간
-            Text("\(record.actualDuration / 60)분")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            if let duration = record.actualDuration {
+                Text("\(duration / 60)분")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
 
             // 평점 (있을 때만 표시)
             if let level = record.focusLevel {
@@ -131,13 +148,19 @@ struct RecordRowView: View {
         .background(Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: CornerRadius.large, style: .continuous))
         .padding(.horizontal, Spacing.lg)
+        .opacity(isIncomplete ? 0.7 : 1.0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("탭하여 상세 보기")
     }
 
     private var accessibilityLabel: String {
-        var label = "\(Self.timeFormatter.string(from: record.startTime)), \(record.actualDuration / 60)분 세션"
+        var label = "\(Self.timeFormatter.string(from: record.startTime))"
+        if let duration = record.actualDuration {
+            label += ", \(duration / 60)분 세션"
+        } else {
+            label += ", 진행 중인 세션"
+        }
         if let level = record.focusLevel {
             label += ", 집중도 \(level)점"
         }
@@ -317,7 +340,7 @@ struct RecordDetailView: View {
                     .multilineTextAlignment(.center)
             }
             (Text("\(formatDateTime(record.startTime)) | ")
-                + Text("\(record.actualDuration / 60)분").fontWeight(.semibold))
+                + Text("\((record.actualDuration ?? 0) / 60)분").fontWeight(.semibold))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }

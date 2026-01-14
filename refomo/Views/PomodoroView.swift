@@ -12,6 +12,8 @@ struct PomodoroView: View {
     @FocusState private var isGoalFieldFocused: Bool
     @FocusState private var isTimeFocused: Bool
     @State private var timeInputBuffer: String = ""
+    @State private var horizontalOffset: CGFloat = 0
+    @GestureState private var dragOffset: CGFloat = 0
 
     // Dynamic Type support
     @ScaledMetric(relativeTo: .largeTitle) private var timerFontSize: CGFloat = 32
@@ -68,15 +70,89 @@ struct PomodoroView: View {
                     .onTapGesture {
                         isGoalFieldFocused = false
                         isTimeFocused = false
-                        if viewModel.timerState == .running { showTimeTemporarily() }
+                        if viewModel.showMemoPanel {
+                            closeMemoPanel()
+                        } else if viewModel.timerState == .running {
+                            showTimeTemporarily()
+                        }
                     }
 
-                if isLandscape {
-                    landscapeLayout(circleSize: circleSize, geo: geo)
-                } else {
-                    portraitLayout(circleSize: circleSize)
+                // Main content with offset
+                Group {
+                    if isLandscape {
+                        landscapeLayout(circleSize: circleSize, geo: geo)
+                    } else {
+                        portraitLayout(circleSize: circleSize)
+                    }
+                }
+                .offset(x: horizontalOffset + dragOffset)
+
+                // Memo side panel
+                if viewModel.showMemoPanel || dragOffset > 0 {
+                    HStack {
+                        Spacer()
+                        MemoSidePanel(
+                            memo: $viewModel.inProgressMemo,
+                            isVisible: $viewModel.showMemoPanel,
+                            onClose: closeMemoPanel
+                        )
+                        .frame(width: isLandscape ? 250 : 300)
+                    }
+                    .ignoresSafeArea(.keyboard)
+                }
+
+                // FAB button for accessibility
+                if viewModel.timerState == .running && !viewModel.showMemoPanel {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button {
+                                withAnimation(reduceMotion ? nil : .spring()) {
+                                    viewModel.showMemoPanel = true
+                                    horizontalOffset = isLandscape ? -250 : -300
+                                }
+                            } label: {
+                                Image(systemName: "pencil")
+                                    .font(.title2)
+                                    .padding()
+                                    .background(Color.pomodoroAccent)
+                                    .foregroundColor(.white)
+                                    .clipShape(Circle())
+                                    .shadow(radius: 4)
+                            }
+                            .accessibilityLabel("메모 작성")
+                            .padding()
+                        }
+                    }
                 }
             }
+            .gesture(
+                viewModel.timerState == .running ?
+                DragGesture()
+                    .updating($dragOffset) { value, state, _ in
+                        if abs(value.translation.width) > abs(value.translation.height) {
+                            state = value.translation.width
+                        }
+                    }
+                    .onEnded { value in
+                        let threshold: CGFloat = 50
+                        if value.translation.width > threshold && !viewModel.showMemoPanel {
+                            withAnimation(reduceMotion ? nil : .spring()) {
+                                horizontalOffset = isLandscape ? -250 : -300
+                                viewModel.showMemoPanel = true
+                            }
+                            SoundService.shared.playHaptic(.light)
+                        } else if value.translation.width < -threshold && viewModel.showMemoPanel {
+                            closeMemoPanel()
+                        } else {
+                            withAnimation(reduceMotion ? nil : .spring()) {
+                                horizontalOffset = viewModel.showMemoPanel ? (isLandscape ? -250 : -300) : 0
+                            }
+                        }
+                    }
+                : nil
+            )
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.5), value: showTime)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.timerState)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isTimeFocused)
@@ -86,6 +162,9 @@ struct PomodoroView: View {
                     isTimeFocused = false
                 }
                 if new == .paused { showTime = true }
+                if new == .completed && viewModel.showMemoPanel {
+                    closeMemoPanel()
+                }
             }
             .onChange(of: isTimeFocused) { _, newValue in
                 if newValue {
@@ -261,7 +340,7 @@ struct PomodoroView: View {
         case .running, .paused:
             return !viewModel.goalText.isEmpty
         case .completed:
-            return false
+            return !viewModel.goalText.isEmpty
         }
     }
 
@@ -311,6 +390,13 @@ struct PomodoroView: View {
     private var completeButton: some View {
         if viewModel.timerState == .completed {
             Button {
+                // Set up RecordViewModel with existing record if available
+                if let recordId = viewModel.currentRecordId {
+                    recordViewModel.existingRecordId = recordId
+                    if let existingRecord = StorageService.shared.load().first(where: { $0.id == recordId }) {
+                        recordViewModel.memo = existingRecord.memo ?? ""
+                    }
+                }
                 recordViewModel.pendingRecord = viewModel.createPendingRecord()
                 viewModel.completeSession()
             } label: {
@@ -337,6 +423,15 @@ struct PomodoroView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             if viewModel.timerState == .running { showTime = false }
         }
+    }
+
+    private func closeMemoPanel() {
+        viewModel.saveMemoRecord()
+        withAnimation(reduceMotion ? nil : .spring()) {
+            horizontalOffset = 0
+            viewModel.showMemoPanel = false
+        }
+        SoundService.shared.playHaptic(.medium)
     }
 }
 
