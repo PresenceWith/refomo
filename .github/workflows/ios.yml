@@ -17,10 +17,11 @@ jobs:
       run: |
         xcodebuild build -project refomo.xcodeproj \
           -scheme refomo \
-          -destination 'platform=iOS Simulator,name=Any iOS Simulator Device'
+          -destination 'generic/platform=iOS Simulator'
 
     - name: Run Tests
       run: |
         xcodebuild test -project refomo.xcodeproj \
           -scheme refomo \
-          -destination 'platform=iOS Simulator,name=Any iOS Simulator Device'
+          -sdk iphonesimulator \
+          -destination 'platform=iOS Simulator,name=iPhone 16'
