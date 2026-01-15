@@ -347,38 +347,36 @@ struct PomodoroView: View {
     @ViewBuilder
     private var goalDisplay: some View {
         ZStack {
-            if viewModel.timerState == .idle {
-                TextField("이번 세션의 목표", text: $viewModel.goalText)
-                    .font(.body)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, Spacing.sm)
-                    .frame(height: 44)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(CornerRadius.medium)
-                    .focused($isGoalFieldFocused)
-                    .onKeyPress(.tab) {
-                        isGoalFieldFocused = false
-                        isTimeFocused = true
-                        timeInputBuffer = ""
-                        return .handled
-                    }
-                    .onKeyPress(.return) {
-                        isGoalFieldFocused = false
-                        isTimeFocused = true
-                        timeInputBuffer = ""
-                        return .handled
-                    }
-                    .accessibilityLabel("목표 입력")
-                    .accessibilityHint("이번 포모도로 세션에서 달성하고 싶은 목표를 입력하세요")
-            } else {
-                Text(viewModel.goalText)
-                    .font(.body)
-                    .foregroundColor(viewModel.timerState == .paused ? .secondary : .primary)
-                    .lineLimit(1)
-                    .frame(height: 44)
-                    .accessibilityHidden(true)
-            }
+            TextField("이번 세션의 목표", text: $viewModel.goalText)
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
+                .frame(height: 44)
+                .background(
+                    viewModel.timerState == .idle
+                        ? Color(.secondarySystemBackground)
+                        : Color.clear
+                )
+                .cornerRadius(CornerRadius.medium)
+                .foregroundStyle(
+                    viewModel.timerState == .paused ? Color.secondary : Color.primary
+                )
+                .focused($isGoalFieldFocused)
+                .onKeyPress(.tab) {
+                    isGoalFieldFocused = false
+                    isTimeFocused = true
+                    timeInputBuffer = ""
+                    return .handled
+                }
+                .onKeyPress(.return) {
+                    isGoalFieldFocused = false
+                    isTimeFocused = true
+                    timeInputBuffer = ""
+                    return .handled
+                }
+                .accessibilityLabel("목표 입력")
+                .accessibilityHint("이번 포모도로 세션에서 달성하고 싶은 목표를 입력하세요")
         }
         .frame(height: 44)
         .padding(.horizontal, Spacing.lg)
