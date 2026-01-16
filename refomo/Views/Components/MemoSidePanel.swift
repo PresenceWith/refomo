@@ -24,7 +24,7 @@ struct MemoSidePanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header with close hint
-            Text("← 스와이프하여 닫기")
+            Text("→ 스와이프하여 닫기")
                 .font(.system(size: hintFontSize))
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)

@@ -88,7 +88,7 @@ struct PomodoroView: View {
                 .offset(x: horizontalOffset + dragOffset)
 
                 // Memo side panel
-                if viewModel.showMemoPanel || dragOffset > 0 {
+                if viewModel.showMemoPanel || dragOffset < 0 {
                     HStack {
                         Spacer()
                         MemoSidePanel(
@@ -102,13 +102,13 @@ struct PomodoroView: View {
                 }
 
                 // FAB button for accessibility
-                if viewModel.timerState == .running && !viewModel.showMemoPanel {
+                if (viewModel.timerState == .running || viewModel.timerState == .completed) && !viewModel.showMemoPanel {
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
                             Button {
-                                withAnimation(reduceMotion ? nil : .spring()) {
+                                withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
                                     viewModel.showMemoPanel = true
                                     horizontalOffset = isLandscape ? -250 : -300
                                 }
@@ -128,7 +128,7 @@ struct PomodoroView: View {
                 }
             }
             .gesture(
-                viewModel.timerState == .running ?
+                (viewModel.timerState == .running || viewModel.timerState == .completed) ?
                 DragGesture()
                     .updating($dragOffset) { value, state, _ in
                         if abs(value.translation.width) > abs(value.translation.height) {
@@ -137,16 +137,20 @@ struct PomodoroView: View {
                     }
                     .onEnded { value in
                         let threshold: CGFloat = 50
-                        if value.translation.width > threshold && !viewModel.showMemoPanel {
-                            withAnimation(reduceMotion ? nil : .spring()) {
+                        let velocity = value.predictedEndTranslation.width - value.translation.width
+                        let isQuickSwipe = abs(velocity) > 100
+
+                        // Left swipe (negative) opens panel, right swipe (positive) closes panel
+                        if (value.translation.width < -threshold || (isQuickSwipe && velocity < 0)) && !viewModel.showMemoPanel {
+                            withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
                                 horizontalOffset = isLandscape ? -250 : -300
                                 viewModel.showMemoPanel = true
                             }
                             SoundService.shared.playHaptic(.light)
-                        } else if value.translation.width < -threshold && viewModel.showMemoPanel {
+                        } else if (value.translation.width > threshold || (isQuickSwipe && velocity > 0)) && viewModel.showMemoPanel {
                             closeMemoPanel()
                         } else {
-                            withAnimation(reduceMotion ? nil : .spring()) {
+                            withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
                                 horizontalOffset = viewModel.showMemoPanel ? (isLandscape ? -250 : -300) : 0
                             }
                         }
@@ -162,9 +166,6 @@ struct PomodoroView: View {
                     isTimeFocused = false
                 }
                 if new == .paused { showTime = true }
-                if new == .completed && viewModel.showMemoPanel {
-                    closeMemoPanel()
-                }
             }
             .onChange(of: isTimeFocused) { _, newValue in
                 if newValue {
@@ -425,7 +426,7 @@ struct PomodoroView: View {
 
     private func closeMemoPanel() {
         viewModel.saveMemoRecord()
-        withAnimation(reduceMotion ? nil : .spring()) {
+        withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
             horizontalOffset = 0
             viewModel.showMemoPanel = false
         }

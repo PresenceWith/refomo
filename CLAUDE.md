@@ -126,13 +126,22 @@ Follow [Swift API Design Guidelines](https://swift.org/documentation/api-design-
 - Prefer composition over inheritance
 - Keep View bodies under 10 lines; extract subviews otherwise
 
-**Gesture Patterns** (`PomodoroView.swift:130-155`):
+**Gesture Patterns** (`PomodoroView.swift:130-159`):
 - Use `DragGesture()` for directional swipes (e.g., memo panel open/close)
-- Always check motion preferences: `reduceMotion ? nil : .spring()`
-- Swipe thresholds: typically 50pt or greater to avoid accidental triggers
+- Swipe direction convention: **left swipe (negative translation)** opens right-side panels, **right swipe (positive translation)** closes them
+- Use `.updating($dragOffset)` with `@GestureState` for real-time drag preview before commitment
+- Swipe thresholds: 50pt or greater to avoid accidental triggers
+- **Velocity-based quick swipes**: Use `value.predictedEndTranslation` to detect fast flicks (>100pt velocity)
+  ```swift
+  let velocity = value.predictedEndTranslation.width - value.translation.width
+  let isQuickSwipe = abs(velocity) > 100
+  if (value.translation.width < -threshold || (isQuickSwipe && velocity < 0)) { ... }
+  ```
+- Animation: Use `.interactiveSpring(response: 0.35, dampingFraction: 0.85)` for gesture-driven animations
+- Always check motion preferences: `reduceMotion ? nil : .interactiveSpring(...)`
 - Provide haptic feedback for gesture completion: `SoundService.shared.playHaptic()`
-- Example: Right swipe (>50pt) while running opens memo panel, left swipe closes it
 - Always provide button alternatives for accessibility (FAB for non-gesture users)
+- Gestures can be state-conditional: `(timerState == .running || timerState == .completed) ? DragGesture() : nil`
 
 **Modal Dismissal with TabView** (`HistoryView.swift:22-27`, `ContentView.swift:23`):
 - Race condition: Sheet `onDismiss` callback fires **during** dismissal animation, not after completion
@@ -252,8 +261,8 @@ Example from `RecordView.swift:19-21`:
   - `Int` value = session completed with actual duration
 - `currentRecordId` tracks UUID of in-progress record for subsequent updates
 - Flow:
-  1. User swipes right during timer → memo panel opens
-  2. User writes memo and swipes left → partial record created with `actualDuration: nil`
+  1. User swipes left during timer → memo panel opens (from right edge)
+  2. User writes memo and swipes right → partial record created with `actualDuration: nil`
   3. Timer completes → `actualDuration` updated to `plannedDuration + overSeconds`
   4. User taps "완료" → `RecordView` updates existing record with focusLevel/reflection
 - Multiple memo updates during session update same record (no duplicates)
