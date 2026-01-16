@@ -20,7 +20,11 @@ struct HistoryView: View {
         .background(Color(.systemBackground))
         .onAppear { viewModel.loadRecords() }
         .sheet(item: $selectedRecord, onDismiss: {
-            isDetailSheetPresented = false
+            // Delay to allow sheet dismissal animation to complete
+            // This prevents the swipe gesture from triggering TabView page switch
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                isDetailSheetPresented = false
+            }
         }) { record in
             RecordDetailView(record: record,
                              onSave: { viewModel.updateRecord($0) },

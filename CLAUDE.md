@@ -134,6 +134,21 @@ Follow [Swift API Design Guidelines](https://swift.org/documentation/api-design-
 - Example: Right swipe (>50pt) while running opens memo panel, left swipe closes it
 - Always provide button alternatives for accessibility (FAB for non-gesture users)
 
+**Modal Dismissal with TabView** (`HistoryView.swift:22-27`, `ContentView.swift:23`):
+- Race condition: Sheet `onDismiss` callback fires **during** dismissal animation, not after completion
+- Problem: When `.scrollDisabled()` is tied to sheet state, setting state to `false` in `onDismiss` enables TabView scrolling mid-animation, causing swipe gestures to trigger unwanted page switches
+- Solution: Delay state update in `onDismiss` to allow animation to complete:
+  ```swift
+  .sheet(item: $item, onDismiss: {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+          isSheetPresented = false
+      }
+  })
+  ```
+- Timing: 0.35 seconds accounts for standard sheet dismissal animation (~0.3s) plus buffer
+- Pattern: Use binding to disable TabView scrolling while sheet is presented: `.scrollDisabled(isSheetPresented)`
+- Anti-pattern: Never set `scrollDisabled` binding to `false` synchronously in `onDismiss`
+
 ### Performance Patterns
 
 **Service Singletons** (`SoundService.swift:9-24`):
