@@ -13,6 +13,7 @@ struct MemoSidePanel: View {
     @Binding var isVisible: Bool
     let onClose: () -> Void
 
+    @FocusState private var isTextEditorFocused: Bool
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @ScaledMetric(relativeTo: .body) private var padding: CGFloat = 16
     @ScaledMetric(relativeTo: .footnote) private var hintFontSize: CGFloat = 12
@@ -39,6 +40,7 @@ struct MemoSidePanel: View {
                 }
 
                 TextEditor(text: $memo)
+                    .focused($isTextEditorFocused)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .scrollContentBackground(.hidden)
                     .background(Color.clear)
@@ -59,6 +61,7 @@ struct MemoSidePanel: View {
             }
         }
         .padding(padding)
+        .frame(maxHeight: .infinity)
         .background(Color(.tertiarySystemBackground))
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -72,6 +75,14 @@ struct MemoSidePanel: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("메모 패널")
+        .onChange(of: isVisible) { _, newValue in
+            if newValue {
+                // Delay to allow panel animation to complete
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isTextEditorFocused = true
+                }
+            }
+        }
     }
 }
 

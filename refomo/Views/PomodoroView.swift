@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct PomodoroView: View {
     @StateObject private var viewModel = PomodoroViewModel()
@@ -58,6 +59,10 @@ struct PomodoroView: View {
         verticalSizeClass == .compact
     }
 
+    private var panelWidth: CGFloat {
+        isLandscape ? 250 : 300
+    }
+
     var body: some View {
         GeometryReader { geo in
             let circleSize = isLandscape
@@ -77,29 +82,29 @@ struct PomodoroView: View {
                         }
                     }
 
-                // Main content with offset
-                Group {
-                    if isLandscape {
-                        landscapeLayout(circleSize: circleSize, geo: geo)
-                    } else {
-                        portraitLayout(circleSize: circleSize)
+                // Sliding container: main content + panel side by side
+                HStack(spacing: 0) {
+                    // Main content fills screen width
+                    Group {
+                        if isLandscape {
+                            landscapeLayout(circleSize: circleSize, geo: geo)
+                        } else {
+                            portraitLayout(circleSize: circleSize)
+                        }
                     }
-                }
-                .offset(x: horizontalOffset + dragOffset)
+                    .frame(width: geo.size.width)
 
-                // Memo side panel
-                if viewModel.showMemoPanel || dragOffset < 0 {
-                    HStack {
-                        Spacer()
-                        MemoSidePanel(
-                            memo: $viewModel.inProgressMemo,
-                            isVisible: $viewModel.showMemoPanel,
-                            onClose: closeMemoPanel
-                        )
-                        .frame(width: isLandscape ? 250 : 300)
-                    }
-                    .ignoresSafeArea(.keyboard)
+                    // Panel always rendered, positioned off-screen when closed
+                    MemoSidePanel(
+                        memo: $viewModel.inProgressMemo,
+                        isVisible: $viewModel.showMemoPanel,
+                        onClose: closeMemoPanel
+                    )
+                    .frame(width: panelWidth)
+                    .accessibilityHidden(!viewModel.showMemoPanel && dragOffset >= 0)
                 }
+                .frame(maxHeight: .infinity)
+                .offset(x: horizontalOffset + dragOffset)
 
                 // FAB button for accessibility
                 if (viewModel.timerState == .running || viewModel.timerState == .completed) && !viewModel.showMemoPanel {
@@ -108,9 +113,9 @@ struct PomodoroView: View {
                         HStack {
                             Spacer()
                             Button {
-                                withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
+                                withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) {
                                     viewModel.showMemoPanel = true
-                                    horizontalOffset = isLandscape ? -250 : -300
+                                    horizontalOffset = -panelWidth
                                 }
                             } label: {
                                 Image(systemName: "pencil")
@@ -127,31 +132,30 @@ struct PomodoroView: View {
                     }
                 }
             }
-            .gesture(
+            .clipped()
+            .highPriorityGesture(
                 (viewModel.timerState == .running || viewModel.timerState == .completed) ?
-                DragGesture()
+                DragGesture(minimumDistance: 10)
                     .updating($dragOffset) { value, state, _ in
                         if abs(value.translation.width) > abs(value.translation.height) {
                             state = value.translation.width
                         }
                     }
                     .onEnded { value in
-                        let threshold: CGFloat = 50
-                        let velocity = value.predictedEndTranslation.width - value.translation.width
-                        let isQuickSwipe = abs(velocity) > 100
+                        let threshold: CGFloat = 30
 
                         // Left swipe (negative) opens panel, right swipe (positive) closes panel
-                        if (value.translation.width < -threshold || (isQuickSwipe && velocity < 0)) && !viewModel.showMemoPanel {
-                            withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
-                                horizontalOffset = isLandscape ? -250 : -300
+                        if value.translation.width < -threshold && !viewModel.showMemoPanel {
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) {
+                                horizontalOffset = -panelWidth
                                 viewModel.showMemoPanel = true
                             }
                             SoundService.shared.playHaptic(.light)
-                        } else if (value.translation.width > threshold || (isQuickSwipe && velocity > 0)) && viewModel.showMemoPanel {
+                        } else if value.translation.width > threshold && viewModel.showMemoPanel {
                             closeMemoPanel()
                         } else {
-                            withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
-                                horizontalOffset = viewModel.showMemoPanel ? (isLandscape ? -250 : -300) : 0
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) {
+                                horizontalOffset = viewModel.showMemoPanel ? -panelWidth : 0
                             }
                         }
                     }
@@ -170,6 +174,13 @@ struct PomodoroView: View {
             .onChange(of: isTimeFocused) { _, newValue in
                 if newValue {
                     timeInputBuffer = ""
+                }
+            }
+            .onChange(of: isLandscape) { _, _ in
+                if viewModel.showMemoPanel {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) {
+                        horizontalOffset = -panelWidth
+                    }
                 }
             }
         }
@@ -425,8 +436,11 @@ struct PomodoroView: View {
     }
 
     private func closeMemoPanel() {
+        // Dismiss keyboard first
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+
         viewModel.saveMemoRecord()
-        withAnimation(reduceMotion ? nil : .interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) {
             horizontalOffset = 0
             viewModel.showMemoPanel = false
         }
