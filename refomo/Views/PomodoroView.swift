@@ -457,13 +457,21 @@ struct PomodoroView: View {
 
     private func showTimeTemporarily() {
         showTime = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showTime = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.8)) {
+                showTime = false
+            }
+        }
     }
 
     private func showTimeTemporarilyOnStart() {
         showTime = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            if viewModel.timerState == .running { showTime = false }
+            if viewModel.timerState == .running {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.8)) {
+                    showTime = false
+                }
+            }
         }
     }
 
