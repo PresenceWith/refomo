@@ -63,16 +63,6 @@ struct MemoSidePanel: View {
         .padding(padding)
         .frame(maxHeight: .infinity)
         .background(Color(.tertiarySystemBackground))
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("완료") {
-                    #if canImport(UIKit)
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    #endif
-                }
-            }
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("메모 패널")
         .onChange(of: isVisible) { _, newValue in
