@@ -1,0 +1,20 @@
+# Claude Code Parallel Workflow - Task Tracking
+# Schema reference: .claude/schemas/tasks-schema.yaml
+
+tasks: []
+
+parallel_sessions: []
+
+conflicts: []
+
+config:
+  base_branch: develop
+  auto_sync: false
+  conflict_policy: alert_and_pause
+  next_task_id: 1
+  stale_threshold_hours: 48
+  github_issues_enabled: true
+
+metadata:
+  version: "1.0.0"
+  last_modified: null
