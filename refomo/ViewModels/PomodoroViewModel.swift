@@ -11,11 +11,45 @@ import UIKit
 
 enum TimerState { case idle, running, paused, completed }
 
+enum BreathPhase {
+    case inhale
+    case holdIn
+    case exhale
+    case holdOut
+
+    var instruction: String {
+        switch self {
+        case .inhale: return "들이쉬세요"
+        case .holdIn, .holdOut: return "멈추세요"
+        case .exhale: return "내쉬세요"
+        }
+    }
+
+    var next: BreathPhase {
+        switch self {
+        case .inhale: return .holdIn
+        case .holdIn: return .exhale
+        case .exhale: return .holdOut
+        case .holdOut: return .inhale
+        }
+    }
+
+    /// Target scale for breathing circle animation
+    var targetScale: CGFloat {
+        switch self {
+        case .inhale, .holdIn: return 1.4
+        case .exhale, .holdOut: return 1.0
+        }
+    }
+}
+
 struct PendingRecord {
     let startTime: Date
     let plannedDuration: Int
     let actualDuration: Int
     let goal: String?
+    let meditationCount: Int?
+    let meditationSeconds: Int?
 }
 
 @MainActor
@@ -29,10 +63,22 @@ final class PomodoroViewModel: ObservableObject {
     @Published var inProgressMemo = ""
     @Published var showMemoPanel = false
 
+    // Meditation state
+    @Published var isMeditating = false
+    @Published var meditationRemainingSeconds = 64  // 4 cycles of 16 seconds each
+    @Published var currentBreathPhase: BreathPhase = .inhale
+    @Published var breathPhaseSecondsRemaining = 4  // 4 seconds per phase
+
     private var timer: Timer?
     private var startTime: Date?
     private var plannedDuration = 0
     private(set) var currentRecordId: UUID?
+
+    // Meditation tracking
+    private var preMeditationState: TimerState = .idle
+    private var meditationTimer: Timer?
+    private var currentMeditationCount = 0
+    private var currentMeditationSeconds = 0
 
     var progress: Double {
         switch timerState {
@@ -87,6 +133,13 @@ final class PomodoroViewModel: ObservableObject {
     }
 
     func resetTimer() {
+        // Stop meditation if active
+        if isMeditating {
+            meditationTimer?.invalidate()
+            meditationTimer = nil
+            isMeditating = false
+        }
+
         stopTimer()
         timerState = .idle
         remainingSeconds = 0
@@ -95,6 +148,10 @@ final class PomodoroViewModel: ObservableObject {
         goalText = ""
         inProgressMemo = ""
         currentRecordId = nil
+
+        // Reset meditation tracking
+        currentMeditationCount = 0
+        currentMeditationSeconds = 0
     }
 
     func completeSession() {
@@ -107,9 +164,84 @@ final class PomodoroViewModel: ObservableObject {
 
     func createPendingRecord() -> PendingRecord? {
         guard let startTime else { return nil }
-        return PendingRecord(startTime: startTime, plannedDuration: plannedDuration,
-                             actualDuration: plannedDuration + overSeconds,
-                             goal: goalText.isEmpty ? nil : goalText)
+        return PendingRecord(
+            startTime: startTime,
+            plannedDuration: plannedDuration,
+            actualDuration: plannedDuration + overSeconds,
+            goal: goalText.isEmpty ? nil : goalText,
+            meditationCount: currentMeditationCount > 0 ? currentMeditationCount : nil,
+            meditationSeconds: currentMeditationSeconds > 0 ? currentMeditationSeconds : nil
+        )
+    }
+
+    // MARK: - Meditation
+
+    func startMeditation() {
+        guard timerState == .running || timerState == .paused else { return }
+        preMeditationState = timerState
+
+        // Pause pomodoro timer if running
+        if timerState == .running {
+            timer?.invalidate()
+            timer = nil
+        }
+
+        // Initialize meditation state
+        isMeditating = true
+        meditationRemainingSeconds = 64
+        currentBreathPhase = .inhale
+        breathPhaseSecondsRemaining = 4
+        currentMeditationCount += 1
+
+        SoundService.shared.playHaptic(.light)
+        startMeditationTimer()
+    }
+
+    func skipMeditation() {
+        endMeditation(completed: false)
+    }
+
+    private func endMeditation(completed: Bool) {
+        meditationTimer?.invalidate()
+        meditationTimer = nil
+
+        // Track meditation time
+        let meditatedSeconds = 64 - meditationRemainingSeconds
+        currentMeditationSeconds += meditatedSeconds
+
+        isMeditating = false
+
+        // Restore previous timer state
+        if preMeditationState == .running {
+            timerState = .running
+            setScreenAwake(true)
+            startInternalTimer()
+        }
+
+        SoundService.shared.playHaptic(.medium)
+    }
+
+    private func startMeditationTimer() {
+        meditationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.meditationTick() }
+        }
+    }
+
+    private func meditationTick() {
+        guard meditationRemainingSeconds > 0 else {
+            endMeditation(completed: true)
+            return
+        }
+
+        meditationRemainingSeconds -= 1
+        breathPhaseSecondsRemaining -= 1
+
+        // Transition to next breath phase every 4 seconds
+        if breathPhaseSecondsRemaining <= 0 {
+            currentBreathPhase = currentBreathPhase.next
+            breathPhaseSecondsRemaining = 4
+            SoundService.shared.playBreathTransitionHaptic()
+        }
     }
 
     func finishSession() {
@@ -186,7 +318,9 @@ final class PomodoroViewModel: ObservableObject {
             goal: goalText.isEmpty ? nil : goalText,
             focusLevel: nil,
             reflection: nil,
-            memo: inProgressMemo.isEmpty ? nil : inProgressMemo
+            memo: inProgressMemo.isEmpty ? nil : inProgressMemo,
+            meditationCount: currentMeditationCount > 0 ? currentMeditationCount : nil,
+            meditationSeconds: currentMeditationSeconds > 0 ? currentMeditationSeconds : nil
         )
     }
 

@@ -106,31 +106,6 @@ struct PomodoroView: View {
                 .frame(maxHeight: .infinity)
                 .offset(x: horizontalOffset + dragOffset)
 
-                // FAB button for accessibility
-                if (viewModel.timerState == .running || viewModel.timerState == .completed) && !viewModel.showMemoPanel {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Button {
-                                withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) {
-                                    viewModel.showMemoPanel = true
-                                    horizontalOffset = -panelWidth
-                                }
-                            } label: {
-                                Image(systemName: "pencil")
-                                    .font(.title2)
-                                    .padding()
-                                    .background(Color.pomodoroAccent)
-                                    .foregroundColor(.white)
-                                    .clipShape(Circle())
-                                    .shadow(radius: 4)
-                            }
-                            .accessibilityLabel("메모 작성")
-                            .padding()
-                        }
-                    }
-                }
             }
             .clipped()
             .highPriorityGesture(
@@ -182,6 +157,16 @@ struct PomodoroView: View {
                         horizontalOffset = -panelWidth
                     }
                 }
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            fabButtons
+                .padding(.trailing, 16)
+                .padding(.bottom, 16)
+        }
+        .overlay {
+            if viewModel.isMeditating {
+                MeditationOverlayView(viewModel: viewModel)
             }
         }
         .fullScreenCover(isPresented: $viewModel.showRecordView) {
@@ -251,6 +236,53 @@ struct PomodoroView: View {
         .accessibilityLabel(accessibilityTimerLabel)
         .accessibilityHint(accessibilityTimerHint)
         .accessibilityAddTraits(.allowsDirectInteraction)
+    }
+
+    private var showFAB: Bool {
+        (viewModel.timerState == .running || viewModel.timerState == .paused || viewModel.timerState == .completed)
+            && !viewModel.showMemoPanel
+            && !viewModel.isMeditating
+    }
+
+    @ViewBuilder
+    private var fabButtons: some View {
+        if showFAB {
+            VStack(spacing: 12) {
+                // Meditation FAB
+                if viewModel.timerState == .running || viewModel.timerState == .paused {
+                    Button {
+                        viewModel.startMeditation()
+                    } label: {
+                        Image(systemName: "leaf.fill")
+                            .font(.title2)
+                            .padding()
+                            .background(Color.meditationAccent)
+                            .foregroundColor(.white)
+                            .clipShape(Circle())
+                            .shadow(radius: 4)
+                    }
+                    .accessibilityLabel("1분 명상")
+                    .accessibilityHint("집중이 흐트러질 때 1분간 호흡 명상을 합니다")
+                }
+
+                // Memo FAB
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) {
+                        viewModel.showMemoPanel = true
+                        horizontalOffset = -panelWidth
+                    }
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.title2)
+                        .padding()
+                        .background(Color.pomodoroAccent)
+                        .foregroundColor(.white)
+                        .clipShape(Circle())
+                        .shadow(radius: 4)
+                }
+                .accessibilityLabel("메모 작성")
+            }
+        }
     }
 
     @ViewBuilder

@@ -46,6 +46,13 @@ final class RecordViewModel: ObservableObject {
                 if !memo.isEmpty {
                     records[index].memo = memo
                 }
+                // Update meditation data if present
+                if let meditationCount = p.meditationCount {
+                    records[index].meditationCount = meditationCount
+                }
+                if let meditationSeconds = p.meditationSeconds {
+                    records[index].meditationSeconds = meditationSeconds
+                }
                 storageService.save(records: records)
             }
         } else {
@@ -57,7 +64,9 @@ final class RecordViewModel: ObservableObject {
                 goal: p.goal,
                 focusLevel: focusLevel,
                 reflection: reflection.isEmpty ? nil : reflection,
-                memo: memo.isEmpty ? nil : memo
+                memo: memo.isEmpty ? nil : memo,
+                meditationCount: p.meditationCount,
+                meditationSeconds: p.meditationSeconds
             )
             storageService.append(record: record)
         }

@@ -14,9 +14,12 @@ struct PomodoroRecord: Codable, Identifiable, Equatable {
     var focusLevel: Int?          // 집중도 1-5
     var reflection: String?       // 회고
     var memo: String?             // 메모
+    var meditationCount: Int?     // 명상 횟수
+    var meditationSeconds: Int?   // 총 명상 시간 (초)
 
     init(id: UUID = UUID(), startTime: Date, plannedDuration: Int, actualDuration: Int? = nil,
-         goal: String? = nil, focusLevel: Int? = nil, reflection: String? = nil, memo: String? = nil) {
+         goal: String? = nil, focusLevel: Int? = nil, reflection: String? = nil, memo: String? = nil,
+         meditationCount: Int? = nil, meditationSeconds: Int? = nil) {
         self.id = id
         self.startTime = startTime
         self.plannedDuration = plannedDuration
@@ -25,5 +28,7 @@ struct PomodoroRecord: Codable, Identifiable, Equatable {
         self.focusLevel = focusLevel
         self.reflection = reflection
         self.memo = memo
+        self.meditationCount = meditationCount
+        self.meditationSeconds = meditationSeconds
     }
 }

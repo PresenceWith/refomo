@@ -13,6 +13,7 @@ final class SoundService {
     private let impactLight = UIImpactFeedbackGenerator(style: .light)
     private let impactMedium = UIImpactFeedbackGenerator(style: .medium)
     private let impactHeavy = UIImpactFeedbackGenerator(style: .heavy)
+    private let impactSoft = UIImpactFeedbackGenerator(style: .soft)
     private let selection = UISelectionFeedbackGenerator()
 
     private init() {
@@ -20,6 +21,7 @@ final class SoundService {
         impactLight.prepare()
         impactMedium.prepare()
         impactHeavy.prepare()
+        impactSoft.prepare()
         selection.prepare()
     }
 
@@ -35,4 +37,9 @@ final class SoundService {
     }
 
     func playSelectionHaptic() { selection.selectionChanged() }
+
+    /// Soft haptic for breath phase transitions during meditation
+    func playBreathTransitionHaptic() {
+        impactSoft.impactOccurred(intensity: 0.5)
+    }
 }
