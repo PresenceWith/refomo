@@ -166,6 +166,31 @@ Follow [Swift API Design Guidelines](https://swift.org/documentation/api-design-
 - Pattern: Use binding to disable TabView scrolling while sheet is presented: `.scrollDisabled(isSheetPresented)`
 - Anti-pattern: Never set `scrollDisabled` binding to `false` synchronously in `onDismiss`
 
+**Tap-to-Edit Pattern** (`RecordView.swift:130-171`):
+- Read-only `Text` that converts to `TextField` on tap, reducing visual clutter for optional fields
+- Requires 3 state variables: `@State isEditing`, `@FocusState isFocused`, `focusedField`
+- Implementation:
+  ```swift
+  @State private var isEditing = false
+  @FocusState private var isFocused: Bool
+
+  if isEditing {
+      TextField("placeholder", text: $text)
+          .focused($isFocused)
+          .onSubmit { finishEditing() }
+          .onChange(of: isFocused) { _, focused in
+              if !focused { finishEditing() }
+          }
+  } else if !text.isEmpty {
+      Text(text)
+          .onTapGesture { startEditing() }
+  }
+  ```
+- **Delayed focus**: `@FocusState` requires the target view to exist in the hierarchy before activation. Use `DispatchQueue.main.asyncAfter(deadline: .now() + 0.1)` to set focus after SwiftUI renders the `TextField`
+- Two exit paths: `.onSubmit` (Return key) and `.onChange(of: isFocused)` (tap outside)
+- Accessibility: Add `.accessibilityHint("탭하여 수정합니다")` on read-only `Text`
+- Keep tap-to-edit fields out of default keyboard navigation cycle; include `.goal` case only as escape route in `moveNext()`/`movePrev()`
+
 ### Performance Patterns
 
 **Service Singletons** (`SoundService.swift:9-24`):
@@ -259,7 +284,7 @@ Example from `RecordView.swift:19-21`:
 
 **Pending Record Pattern** (`PomodoroViewModel.swift:14-19, 100-105`):
 - Timer completion creates a `PendingRecord` (not saved yet)
-- User fills focus level, reflection, memo in `RecordView`
+- User fills goal (tap-to-edit), focus level, reflection, memo in `RecordView`
 - `RecordViewModel` converts `PendingRecord` → `PomodoroRecord` and saves
 - This separation prevents incomplete records in storage
 
