@@ -77,6 +77,7 @@ final class PomodoroViewModel: ObservableObject {
 
     // Meditation tracking
     private var preMeditationState: TimerState = .idle
+    private var preMeditationOvertimePaused = false
     private var meditationTimer: Timer?
     private var currentMeditationCount = 0
     private var currentMeditationSeconds = 0
@@ -179,11 +180,12 @@ final class PomodoroViewModel: ObservableObject {
     // MARK: - Meditation
 
     func startMeditation() {
-        guard timerState == .running || timerState == .paused else { return }
+        guard timerState == .running || timerState == .paused || timerState == .completed else { return }
         preMeditationState = timerState
+        preMeditationOvertimePaused = isOvertimePaused
 
-        // Pause pomodoro timer if running
-        if timerState == .running {
+        // Pause timer if actively running
+        if timer != nil {
             timer?.invalidate()
             timer = nil
         }
@@ -216,6 +218,9 @@ final class PomodoroViewModel: ObservableObject {
         // Restore previous timer state
         if preMeditationState == .running {
             timerState = .running
+            setScreenAwake(true)
+            startInternalTimer()
+        } else if preMeditationState == .completed && !preMeditationOvertimePaused {
             setScreenAwake(true)
             startInternalTimer()
         }

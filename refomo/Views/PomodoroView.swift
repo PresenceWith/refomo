@@ -251,7 +251,7 @@ struct PomodoroView: View {
         if showFAB {
             VStack(spacing: 12) {
                 // Meditation FAB
-                if viewModel.timerState == .running || viewModel.timerState == .paused {
+                if viewModel.timerState == .running || viewModel.timerState == .paused || viewModel.timerState == .completed {
                     Button {
                         viewModel.startMeditation()
                     } label: {
