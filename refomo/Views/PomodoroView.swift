@@ -51,7 +51,9 @@ struct PomodoroView: View {
         case .paused:
             return "탭하여 재개, 길게 눌러 초기화"
         case .completed:
-            return "완료 버튼을 눌러 기록 저장"
+            return viewModel.isOvertimePaused
+                ? "탭하여 초과 시간 재개, 길게 눌러 초기화"
+                : "탭하여 초과 시간 일시정지, 길게 눌러 초기화"
         }
     }
 
@@ -315,7 +317,7 @@ struct PomodoroView: View {
     private var timerTextColor: Color {
         if isTimeFocused && viewModel.timerState == .idle {
             return Color.pomodoroAccent
-        } else if viewModel.timerState == .paused {
+        } else if viewModel.timerState == .paused || (viewModel.timerState == .completed && viewModel.isOvertimePaused) {
             return .secondary
         } else {
             return .primary

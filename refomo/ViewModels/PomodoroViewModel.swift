@@ -62,6 +62,7 @@ final class PomodoroViewModel: ObservableObject {
     @Published var goalText = ""
     @Published var inProgressMemo = ""
     @Published var showMemoPanel = false
+    @Published var isOvertimePaused = false
 
     // Meditation state
     @Published var isMeditating = false
@@ -114,10 +115,10 @@ final class PomodoroViewModel: ObservableObject {
 
     func toggleTimer() {
         switch timerState {
-        case .idle:    startTimer()
-        case .running: pauseTimer()
-        case .paused:  resumeTimer()
-        case .completed: break
+        case .idle:      startTimer()
+        case .running:   pauseTimer()
+        case .paused:    resumeTimer()
+        case .completed: isOvertimePaused ? resumeOvertime() : pauseOvertime()
         }
     }
 
@@ -148,6 +149,7 @@ final class PomodoroViewModel: ObservableObject {
         goalText = ""
         inProgressMemo = ""
         currentRecordId = nil
+        isOvertimePaused = false
 
         // Reset meditation tracking
         currentMeditationCount = 0
@@ -276,6 +278,21 @@ final class PomodoroViewModel: ObservableObject {
 
     private func resumeTimer() {
         timerState = .running
+        setScreenAwake(true)
+        SoundService.shared.playHaptic(.light)
+        startInternalTimer()
+    }
+
+    private func pauseOvertime() {
+        timer?.invalidate()
+        timer = nil
+        isOvertimePaused = true
+        setScreenAwake(false)
+        SoundService.shared.playHaptic(.light)
+    }
+
+    private func resumeOvertime() {
+        isOvertimePaused = false
         setScreenAwake(true)
         SoundService.shared.playHaptic(.light)
         startInternalTimer()
