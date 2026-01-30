@@ -143,6 +143,14 @@ Follow [Swift API Design Guidelines](https://swift.org/documentation/api-design-
 - Always provide button alternatives for accessibility (FAB for non-gesture users)
 - Gestures can be state-conditional: `(timerState == .running || timerState == .completed) ? DragGesture() : nil`
 
+**Long-Press Session Dialog** (`PomodoroView.swift:231-251`):
+- Long-press on timer circle during running/paused/completed shows `.confirmationDialog()` with "저장"/"삭제" options
+- State guard: Only trigger when `timerState != .idle`
+- Use `role: .destructive` for destructive button styling (e.g., "삭제")
+- Haptic: `.medium` on gesture trigger; dialog handles its own button haptics
+- Helper `setupRecordViewModelForSave()` prepares RecordViewModel state — shared with completeButton
+- Accessibility hint: "길게 눌러 세션 종료 옵션"
+
 **Modal Dismissal with TabView** (`HistoryView.swift:22-27`, `ContentView.swift:23`):
 - Race condition: Sheet `onDismiss` callback fires **during** dismissal animation, not after completion
 - Problem: When `.scrollDisabled()` is tied to sheet state, setting state to `false` in `onDismiss` enables TabView scrolling mid-animation, causing swipe gestures to trigger unwanted page switches
@@ -266,3 +274,9 @@ Example from `RecordView.swift:19-21`:
   3. Timer completes → `actualDuration` updated to `plannedDuration + overSeconds`
   4. User taps "완료" → `RecordView` updates existing record with focusLevel/reflection
 - Multiple memo updates during session update same record (no duplicates)
+- **Session termination options** (long-press dialog, `PomodoroViewModel.swift:180-194`):
+  - **Save** (`saveSessionEarly()`): Updates partial record's `actualDuration` to elapsed time, then shows RecordView
+  - **Delete** (`deleteSession()`): Calls `resetTimer()` which cleans up orphaned partial records via `StorageService.delete(id:)`
+  - `currentActualDuration` computed property unifies duration calculation: `plannedDuration - remainingSeconds` (running/paused) or `plannedDuration + overSeconds` (completed)
+  - **Orphan cleanup**: `resetTimer()` deletes partial record if `currentRecordId` is set before clearing state
+  - **Safety**: `finishSession()` sets `currentRecordId = nil` BEFORE calling `resetTimer()`, preventing deletion of successfully saved records

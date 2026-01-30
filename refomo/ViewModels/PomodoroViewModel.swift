@@ -63,6 +63,7 @@ final class PomodoroViewModel: ObservableObject {
     @Published var inProgressMemo = ""
     @Published var showMemoPanel = false
     @Published var isOvertimePaused = false
+    @Published var showResetDialog = false
 
     // Meditation state
     @Published var isMeditating = false
@@ -92,6 +93,12 @@ final class PomodoroViewModel: ObservableObject {
 
     var overProgress: Double {
         timerState == .completed ? min(Double(overSeconds) / 3600.0, 1.0) : 0
+    }
+
+    var currentActualDuration: Int {
+        timerState == .completed
+            ? (plannedDuration + overSeconds)
+            : (plannedDuration - remainingSeconds)
     }
 
     var displayTime: String {
@@ -135,6 +142,11 @@ final class PomodoroViewModel: ObservableObject {
     }
 
     func resetTimer() {
+        // Clean up orphaned partial record in storage
+        if let recordId = currentRecordId {
+            StorageService.shared.delete(id: recordId)
+        }
+
         // Stop meditation if active
         if isMeditating {
             meditationTimer?.invalidate()
@@ -165,12 +177,28 @@ final class PomodoroViewModel: ObservableObject {
         showRecordView = true
     }
 
+    func deleteSession() {
+        resetTimer()
+    }
+
+    func saveSessionEarly() {
+        if let recordId = currentRecordId {
+            var records = StorageService.shared.load()
+            if let index = records.firstIndex(where: { $0.id == recordId }) {
+                records[index].actualDuration = currentActualDuration
+                StorageService.shared.save(records: records)
+            }
+        }
+        stopTimer()
+        showRecordView = true
+    }
+
     func createPendingRecord() -> PendingRecord? {
         guard let startTime else { return nil }
         return PendingRecord(
             startTime: startTime,
             plannedDuration: plannedDuration,
-            actualDuration: plannedDuration + overSeconds,
+            actualDuration: currentActualDuration,
             goal: goalText.isEmpty ? nil : goalText,
             meditationCount: currentMeditationCount > 0 ? currentMeditationCount : nil,
             meditationSeconds: currentMeditationSeconds > 0 ? currentMeditationSeconds : nil

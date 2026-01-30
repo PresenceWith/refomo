@@ -69,4 +69,10 @@ final class StorageService {
             save(records: records)
         }
     }
+
+    func delete(id: UUID) {
+        var records = load()
+        records.removeAll { $0.id == id }
+        save(records: records)
+    }
 }

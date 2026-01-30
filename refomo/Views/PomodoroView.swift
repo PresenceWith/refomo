@@ -45,15 +45,15 @@ struct PomodoroView: View {
     private var accessibilityTimerHint: String {
         switch viewModel.timerState {
         case .idle:
-            return "탭하여 타이머 시작, 길게 눌러 초기화"
+            return "탭하여 타이머 시작"
         case .running:
-            return "탭하여 일시정지, 길게 눌러 초기화"
+            return "탭하여 일시정지, 길게 눌러 세션 종료 옵션"
         case .paused:
-            return "탭하여 재개, 길게 눌러 초기화"
+            return "탭하여 재개, 길게 눌러 세션 종료 옵션"
         case .completed:
             return viewModel.isOvertimePaused
-                ? "탭하여 초과 시간 재개, 길게 눌러 초기화"
-                : "탭하여 초과 시간 일시정지, 길게 눌러 초기화"
+                ? "탭하여 초과 시간 재개, 길게 눌러 세션 종료 옵션"
+                : "탭하여 초과 시간 일시정지, 길게 눌러 세션 종료 옵션"
         }
     }
 
@@ -230,9 +230,24 @@ struct PomodoroView: View {
         .onTapGesture { viewModel.toggleTimer() }
         .onLongPressGesture {
             if viewModel.timerState != .idle {
-                viewModel.resetTimer()
+                viewModel.showResetDialog = true
                 SoundService.shared.playHaptic(.medium)
             }
+        }
+        .confirmationDialog(
+            "세션 종료",
+            isPresented: $viewModel.showResetDialog,
+            titleVisibility: .visible
+        ) {
+            Button("저장") {
+                setupRecordViewModelForSave()
+                viewModel.saveSessionEarly()
+            }
+            Button("삭제", role: .destructive) {
+                viewModel.deleteSession()
+            }
+        } message: {
+            Text("진행 중인 세션을 어떻게 처리하시겠습니까?")
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityTimerLabel)
@@ -421,19 +436,22 @@ struct PomodoroView: View {
         .opacity(shouldShowGoal ? 1 : 0)
     }
 
+    private func setupRecordViewModelForSave() {
+        if let recordId = viewModel.currentRecordId {
+            recordViewModel.existingRecordId = recordId
+            if let existingRecord = StorageService.shared.load().first(where: { $0.id == recordId }) {
+                recordViewModel.memo = existingRecord.memo ?? ""
+            }
+        }
+        recordViewModel.pendingRecord = viewModel.createPendingRecord()
+        recordViewModel.goalText = viewModel.goalText
+    }
+
     @ViewBuilder
     private var completeButton: some View {
         if viewModel.timerState == .completed {
             Button {
-                // Set up RecordViewModel with existing record if available
-                if let recordId = viewModel.currentRecordId {
-                    recordViewModel.existingRecordId = recordId
-                    if let existingRecord = StorageService.shared.load().first(where: { $0.id == recordId }) {
-                        recordViewModel.memo = existingRecord.memo ?? ""
-                    }
-                }
-                recordViewModel.pendingRecord = viewModel.createPendingRecord()
-                recordViewModel.goalText = viewModel.goalText
+                setupRecordViewModelForSave()
                 viewModel.completeSession()
             } label: {
                 Text("완료")
