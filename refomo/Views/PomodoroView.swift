@@ -394,7 +394,10 @@ struct PomodoroView: View {
         }
     }
 
-    private var shouldShowGoal: Bool { true }
+    private var shouldShowGoal: Bool {
+        if viewModel.timerState == .idle { return true }
+        return !viewModel.goalText.isEmpty || isGoalFieldFocused
+    }
 
     @ViewBuilder
     private var goalDisplay: some View {
