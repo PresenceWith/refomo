@@ -379,16 +379,7 @@ struct PomodoroView: View {
         }
     }
 
-    private var shouldShowGoal: Bool {
-        switch viewModel.timerState {
-        case .idle:
-            return true
-        case .running, .paused:
-            return !viewModel.goalText.isEmpty
-        case .completed:
-            return !viewModel.goalText.isEmpty
-        }
-    }
+    private var shouldShowGoal: Bool { true }
 
     @ViewBuilder
     private var goalDisplay: some View {
@@ -442,6 +433,7 @@ struct PomodoroView: View {
                     }
                 }
                 recordViewModel.pendingRecord = viewModel.createPendingRecord()
+                recordViewModel.goalText = viewModel.goalText
                 viewModel.completeSession()
             } label: {
                 Text("완료")

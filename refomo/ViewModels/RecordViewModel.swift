@@ -9,6 +9,7 @@ import Combine
 @MainActor
 final class RecordViewModel: ObservableObject {
     @Published var focusLevel = 3
+    @Published var goalText = ""
     @Published var reflection = ""
     @Published var memo = ""
 
@@ -29,10 +30,6 @@ final class RecordViewModel: ObservableObject {
         return "\(p.actualDuration / 60)분"
     }
 
-    var goalText: String? {
-        pendingRecord?.goal
-    }
-
     func saveRecord(completion: @escaping () -> Void) {
         guard let p = pendingRecord else { completion(); return }
 
@@ -41,6 +38,7 @@ final class RecordViewModel: ObservableObject {
             var records = storageService.load()
             if let index = records.firstIndex(where: { $0.id == recordId }) {
                 records[index].actualDuration = p.actualDuration
+                records[index].goal = goalText.isEmpty ? nil : goalText
                 records[index].focusLevel = focusLevel
                 records[index].reflection = reflection.isEmpty ? nil : reflection
                 if !memo.isEmpty {
@@ -61,7 +59,7 @@ final class RecordViewModel: ObservableObject {
                 startTime: p.startTime,
                 plannedDuration: p.plannedDuration,
                 actualDuration: p.actualDuration,
-                goal: p.goal,
+                goal: goalText.isEmpty ? nil : goalText,
                 focusLevel: focusLevel,
                 reflection: reflection.isEmpty ? nil : reflection,
                 memo: memo.isEmpty ? nil : memo,
@@ -82,6 +80,7 @@ final class RecordViewModel: ObservableObject {
 
     private func reset() {
         focusLevel = 3
+        goalText = ""
         reflection = ""
         memo = ""
         pendingRecord = nil

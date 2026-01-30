@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-enum RecordField: Hashable { case focusLevel, reflection, memo, saveButton, skipButton }
+enum RecordField: Hashable { case goal, focusLevel, reflection, memo, saveButton, skipButton }
 
 struct RecordView: View {
     @ObservedObject var viewModel: RecordViewModel
@@ -45,19 +45,19 @@ struct RecordView: View {
         }
         .background(Color(.systemBackground))
         .contentShape(Rectangle())
-        .onTapGesture { focusedField = .focusLevel }
+        .onTapGesture { focusedField = .goal }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Button(action: movePrev) { Image(systemName: "chevron.up") }
                 Button(action: moveNext) { Image(systemName: "chevron.down") }
                 Spacer()
-                Button("완료") { focusedField = .focusLevel }
+                Button("완료") { focusedField = .goal }
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: viewModel.focusLevel)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                if focusedField == nil { focusedField = .focusLevel }
+                if focusedField == nil { focusedField = .goal }
             }
         }
     }
@@ -68,21 +68,15 @@ struct RecordView: View {
     private var portraitContent: some View {
         VStack(spacing: Spacing.xxl) {
             VStack(spacing: 8) {
-                if let goal = viewModel.goalText, !goal.isEmpty {
-                    Text(goal)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 24)
-                }
                 if !viewModel.sessionInfo.isEmpty {
                     Text(viewModel.sessionInfo)
                         .font(.subheadline)
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
-                        .padding(.top, viewModel.goalText?.isEmpty ?? true ? 24 : 0)
+                        .padding(.top, 24)
                 }
             }
+            goalSection
             focusLevelSection
             reflectionSection
             memoSection
@@ -98,25 +92,19 @@ struct RecordView: View {
     private var landscapeContent: some View {
         VStack(spacing: Spacing.lg) {
             VStack(spacing: 4) {
-                if let goal = viewModel.goalText, !goal.isEmpty {
-                    Text(goal)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 16)
-                }
                 if !viewModel.sessionInfo.isEmpty {
                     Text(viewModel.sessionInfo)
                         .font(.subheadline)
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
-                        .padding(.top, viewModel.goalText?.isEmpty ?? true ? 16 : 0)
+                        .padding(.top, 16)
                 }
             }
 
             HStack(alignment: .top, spacing: Spacing.xl) {
-                // Left column: Focus level + Buttons
+                // Left column: Goal + Focus level + Buttons
                 VStack(spacing: Spacing.lg) {
+                    goalSection
                     focusLevelSection
                     Spacer(minLength: 20)
                     buttonsSection
@@ -138,6 +126,32 @@ struct RecordView: View {
 
     // MARK: - Sections
 
+    @FocusState private var isGoalFieldFocused: Bool
+
+    private var goalSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("목표").font(.headline)
+            TextField("이번 세션의 목표", text: $viewModel.goalText)
+                .font(.body)
+                .padding(12)
+                .background(Color.inputBackground)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.pomodoroAccent, lineWidth: focusedField == .goal ? 2 : 0))
+                .animateIfAllowed(focusedField == .goal)
+                .focused($isGoalFieldFocused)
+                .onChange(of: focusedField) { _, newValue in
+                    isGoalFieldFocused = newValue == .goal
+                }
+                .onChange(of: isGoalFieldFocused) { _, focused in
+                    if focused { focusedField = .goal }
+                }
+                .accessibilityLabel("목표")
+                .accessibilityHint("이번 세션의 목표를 입력합니다")
+        }
+        .id(RecordField.goal)
+    }
+
     private var focusLevelSection: some View {
         ZStack {
             KeyboardResponderView(isFocused: focusedField == .focusLevel,
@@ -145,7 +159,7 @@ struct RecordView: View {
                                   onLeftArrow: { if viewModel.focusLevel > 1 { viewModel.focusLevel -= 1; SoundService.shared.playSelectionHaptic() } },
                                   onRightArrow: { if viewModel.focusLevel < 5 { viewModel.focusLevel += 1; SoundService.shared.playSelectionHaptic() } },
                                   onTab: { focusedField = .reflection },
-                                  onShiftTab: { focusedField = .skipButton })
+                                  onShiftTab: { focusedField = .goal })
                 .frame(width: 1, height: 1).allowsHitTesting(false)
 
             VStack(alignment: .leading, spacing: 12) {
@@ -243,7 +257,7 @@ struct RecordView: View {
             ZStack {
                 KeyboardResponderView(isFocused: focusedField == .skipButton,
                                       onFocusChange: { if $0 { focusedField = .skipButton } },
-                                      onTab: { focusedField = .focusLevel },
+                                      onTab: { focusedField = .goal },
                                       onShiftTab: { focusedField = .saveButton },
                                       onEnter: { viewModel.skip { onDismiss() } })
                     .frame(width: 1, height: 1).allowsHitTesting(false)
@@ -278,12 +292,13 @@ struct RecordView: View {
 
     private func moveNext() {
         switch focusedField {
+        case .goal:        focusedField = .focusLevel
         case .focusLevel:  focusedField = .reflection
         case .reflection:  focusedField = .memo
         case .memo:        focusedField = .saveButton
         case .saveButton:  focusedField = .skipButton
-        case .skipButton:  focusedField = .focusLevel
-        default:           focusedField = .focusLevel
+        case .skipButton:  focusedField = .goal
+        default:           focusedField = .goal
         }
     }
 
@@ -293,7 +308,8 @@ struct RecordView: View {
         case .saveButton:  focusedField = .memo
         case .memo:        focusedField = .reflection
         case .reflection:  focusedField = .focusLevel
-        case .focusLevel:  focusedField = .skipButton
+        case .focusLevel:  focusedField = .goal
+        case .goal:        focusedField = .skipButton
         default: break
         }
     }
